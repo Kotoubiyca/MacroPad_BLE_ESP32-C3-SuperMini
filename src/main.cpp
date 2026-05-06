@@ -5,6 +5,19 @@
 #include "actions.hpp"
 #include "config.hpp"
 #include "web.hpp"
+#include "sleep.hpp"
+#include "debug.hpp"
+
+static unsigned long lastBleCheckMs = 0;
+
+void handleBleReconnectWatchdog() {
+  if (millis() - lastBleCheckMs < 5000) return;
+  lastBleCheckMs = millis();
+
+  if (!keyboard.isConnected()) {
+    DBGF("BLE not connected, waiting for host reconnect...");
+  }
+}
 
 void setup() {
   Serial.begin(115200);
@@ -30,9 +43,11 @@ void setup() {
   keyboard.setLogLevel(HIDLogLevel::Normal);
   keyboard.begin();
 
+  initSleepTimer();
+
   lastClk = digitalRead(ENC_CLK);
 
-  Serial.println("Normal BLE mode started");
+  DBGF("Normal BLE mode started");
 }
 
 void loop() {
@@ -44,4 +59,8 @@ void loop() {
 
   handleEncoder();
   handleButtons();
+
+  handleAutoSleep();
+  
+  handleBleReconnectWatchdog();
 }

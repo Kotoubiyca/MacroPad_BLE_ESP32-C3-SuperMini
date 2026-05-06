@@ -1,6 +1,8 @@
 #pragma once
 #include <Arduino.h>
 #include "state.hpp"
+#include "sleep.hpp"
+#include "debug.hpp"
 
 const char* actionName(uint8_t action) {
   switch (action) {
@@ -206,6 +208,10 @@ void handleButtons() {
       lastButtonMs[i] = millis();
       lastButtonState[i] = state;
 
+      DBGF("[BTN] ", i, " state: ", state == LOW ? "PRESSED" : "RELEASED");
+
+      markActivity(state == LOW ? "button press" : "button release");
+
       if (state == LOW) {
         runAction(buttonActions[i], i);
       }
@@ -220,6 +226,14 @@ void handleEncoder() {
     int dt = digitalRead(ENC_DT);
 
     if (keyboard.isPaired()) {
+      if (softSleepMode) {
+        markActivity("encoder wake");
+        return;
+      }
+
+      markActivity("encoder");
+      DBGF("[ENC] rotation detected");
+
       if (dt != clk) {
         tapMedia(MEDIA_VOLUME_UP);
       } else {

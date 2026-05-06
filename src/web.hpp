@@ -163,10 +163,10 @@ void startConfigMode() {
 
   server.begin();
 
-  Serial.println("Config mode started");
-  Serial.println("AP: ESP32-MacroPad-Config");
-  Serial.println("Password: 12345678");
-  Serial.println("Open: http://192.168.4.1");
+  DBGF("Config mode started");
+  DBGF("AP: ESP32-MacroPad-Config");
+  DBGF("Password: 12345678");
+  DBGF("Open: http://192.168.4.1");
 }
 
 void handleConfigWeb() {

@@ -48,7 +48,7 @@ String buttonCustom[BUTTON_COUNT] = {
 bool lastButtonState[BUTTON_COUNT] = {HIGH, HIGH, HIGH, HIGH};
 unsigned long lastButtonMs[BUTTON_COUNT] = {0, 0, 0, 0};
 
-const unsigned long debounceMs = 35;
+const unsigned long debounceMs = 80;
 
 int lastClk = HIGH;
 bool lastEncSw = HIGH;

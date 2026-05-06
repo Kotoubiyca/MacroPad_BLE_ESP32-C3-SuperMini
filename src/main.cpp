@@ -41,7 +41,8 @@ enum ActionId : uint8_t {
   ACT_ESC,
   ACT_MEDIA_PLAY,
   ACT_MEDIA_NEXT,
-  ACT_MEDIA_PREV
+  ACT_MEDIA_PREV,
+  ACT_CUSTOM = 99
 };
 
 uint8_t buttonActions[4] = {
@@ -49,6 +50,13 @@ uint8_t buttonActions[4] = {
   ACT_F14,
   ACT_F15,
   ACT_F16
+};
+
+String buttonCustom[4] = {
+  "TEXT:Hello",
+  "CTRL+C",
+  "MEDIA:MUTE",
+  "CTRL+L\nTEXT:https://google.com\nENTER"
 };
 
 const char* actionName(uint8_t action) {
@@ -69,6 +77,7 @@ const char* actionName(uint8_t action) {
     case ACT_MEDIA_PLAY: return "Play / Pause";
     case ACT_MEDIA_NEXT: return "Next Track";
     case ACT_MEDIA_PREV: return "Previous Track";
+    case ACT_CUSTOM: return "Custom text / macro";
     default: return "Unknown";
   }
 }
@@ -86,42 +95,129 @@ unsigned long lastEncSwMs = 0;
 // ===== CONFIG =====
 void loadConfig() {
   prefs.begin("macropad", true);
+
   for (int i = 0; i < 4; i++) {
-    buttonActions[i] = prefs.getUChar(("b" + String(i)).c_str(), buttonActions[i]);
+    buttonActions[i] = prefs.getUChar(("b" + String(i) + "a").c_str(), buttonActions[i]);
+    buttonCustom[i] = prefs.getString(("b" + String(i) + "c").c_str(), buttonCustom[i]);
   }
+
   prefs.end();
 }
 
 void saveConfig() {
   prefs.begin("macropad", false);
+
   for (int i = 0; i < 4; i++) {
-    prefs.putUChar(("b" + String(i)).c_str(), buttonActions[i]);
+    prefs.putUChar(("b" + String(i) + "a").c_str(), buttonActions[i]);
+    prefs.putString(("b" + String(i) + "c").c_str(), buttonCustom[i]);
   }
+
   prefs.end();
 }
 
 // ===== HID HELPERS =====
-void tapKey(uint16_t key) {
+void tapKey(uint8_t key) {
   keyboard.press(key);
-  delay(25);
-  keyboard.release(key);
-}
-
-void tapCombo(uint8_t key, uint8_t modifiers) {
-  keyboard.press(modifiers);
-  keyboard.press(key);
-  delay(40);
+  delay(35);
   keyboard.releaseAll();
 }
 
 void tapMedia(uint16_t mediaKey) {
   keyboard.press(mediaKey);
-  delay(30);
+  delay(35);
   keyboard.release(mediaKey);
 }
 
-void runAction(uint8_t action) {
+void tapCombo(uint8_t key, uint8_t modifiers) {
+  keyboard.press(modifiers);
+  keyboard.press(key);
+  delay(45);
+  keyboard.releaseAll();
+}
+
+void typeText(String text) {
+  for (int i = 0; i < text.length(); i++) {
+    keyboard.print(text[i]);
+    delay(8);
+  }
+}
+
+void runMacroLine(String line) {
+  line.trim();
+  line.toUpperCase();
+
+  if (line.length() == 0) return;
+
+  if (line.startsWith("TEXT:")) {
+    String text = line.substring(5);
+    typeText(text);
+    return;
+  }
+
+  if (line.startsWith("DELAY:")) {
+    int ms = line.substring(6).toInt();
+    delay(ms);
+    return;
+  }
+
+  if (line == "ENTER") tapKey(KEY_RETURN);
+  else if (line == "ESC") tapKey(KEY_ESCAPE);
+  else if (line == "TAB") tapKey(KEY_TAB);
+  else if (line == "SPACE") tapKey(KEY_SPACE);
+  else if (line == "BACKSPACE") tapKey(KEY_BACKSPACE);
+
+  else if (line == "F13") tapKey(KEY_F13);
+  else if (line == "F14") tapKey(KEY_F14);
+  else if (line == "F15") tapKey(KEY_F15);
+  else if (line == "F16") tapKey(KEY_F16);
+
+  else if (line == "CTRL+C") tapCombo(KEY_C, KEY_MOD_LCTRL);
+  else if (line == "CTRL+V") tapCombo(KEY_V, KEY_MOD_LCTRL);
+  else if (line == "CTRL+Z") tapCombo(KEY_Z, KEY_MOD_LCTRL);
+  else if (line == "WIN+D") tapCombo(KEY_D, KEY_MOD_LGUI);
+  else if (line == "ALT+TAB") tapCombo(KEY_TAB, KEY_MOD_LALT);
+
+  else if (line == "CTRL+SHIFT+ESC") {
+    keyboard.press(KEY_LCTRL);
+    keyboard.press(KEY_LSHIFT);
+    keyboard.press(KEY_ESCAPE);
+    delay(45);
+    keyboard.releaseAll();
+  }
+
+  else if (line == "MEDIA:PLAY") tapMedia(MEDIA_PLAY_PAUSE);
+  else if (line == "MEDIA:MUTE") tapMedia(MEDIA_MUTE);
+  else if (line == "MEDIA:NEXT") tapMedia(MEDIA_NEXT_TRACK);
+  else if (line == "MEDIA:PREV") tapMedia(MEDIA_PREV_TRACK);
+  else if (line == "MEDIA:VOLUP") tapMedia(MEDIA_VOLUME_UP);
+  else if (line == "MEDIA:VOLDOWN") tapMedia(MEDIA_VOLUME_DOWN);
+}
+
+void runCustom(String macro) {
+  macro.replace("\r", "");
+  macro.replace(";", "\n");
+
+  int start = 0;
+
+  while (start < macro.length()) {
+    int end = macro.indexOf('\n', start);
+    if (end == -1) end = macro.length();
+
+    String line = macro.substring(start, end);
+    runMacroLine(line);
+
+    delay(60);
+    start = end + 1;
+  }
+}
+
+void runAction(uint8_t action, int buttonIndex) {
   if (!keyboard.isPaired()) return;
+
+  if (action == ACT_CUSTOM) {
+    runCustom(buttonCustom[buttonIndex]);
+    return;
+  }
 
   switch (action) {
     case ACT_DISABLED:
@@ -235,7 +331,7 @@ void handleButtons() {
       lastButtonState[i] = state;
 
       if (state == LOW) {
-        runAction(buttonActions[i]);
+        runAction(buttonActions[i], i);
       }
     }
   }
@@ -250,18 +346,53 @@ String buildPage() {
   html += "<title>ESP32 MacroPad</title>";
   html += "<style>";
   html += "body{font-family:Arial;margin:20px;background:#111;color:#eee}";
-  html += "select,button{font-size:18px;padding:8px;margin:8px 0;width:100%}";
+  html += "select,textarea,button{font-size:16px;padding:8px;margin:8px 0;width:100%;box-sizing:border-box}";
+  html += "textarea{height:110px;background:#000;color:#0f0;border:1px solid #555}";
   html += ".card{background:#222;padding:16px;border-radius:12px;margin-bottom:12px}";
-  html += "</style></head><body>";
+  html += ".hint{font-size:13px;color:#aaa}";
+  html += "</style>";
+
+  html += "<script>";
+  html += "function toggleCustom(i){";
+  html += "var s=document.getElementById('a'+i);";
+  html += "var t=document.getElementById('c'+i);";
+  html += "t.style.display=(s.value=='99')?'block':'none';";
+  html += "}";
+  html += "window.onload=function(){for(let i=0;i<4;i++)toggleCustom(i);};";
+  html += "</script>";
+
+  html += "</head><body>";
   html += "<h2>ESP32-C3 MacroPad Config</h2>";
   html += "<form method='POST' action='/save'>";
 
   for (int b = 0; b < 4; b++) {
     html += "<div class='card'>";
     html += "<h3>Button " + String(b + 1) + "</h3>";
-    html += "<select name='b" + String(b) + "'>";
 
-    for (int a = 0; a <= ACT_MEDIA_PREV; a++) {
+    html += "<select id='a" + String(b) + "' name='b" + String(b) + "_action' onchange='toggleCustom(" + String(b) + ")'>";
+
+    uint8_t actions[] = {
+      ACT_DISABLED,
+      ACT_F13,
+      ACT_F14,
+      ACT_F15,
+      ACT_F16,
+      ACT_CTRL_C,
+      ACT_CTRL_V,
+      ACT_CTRL_Z,
+      ACT_CTRL_SHIFT_ESC,
+      ACT_ALT_TAB,
+      ACT_WIN_D,
+      ACT_ENTER,
+      ACT_ESC,
+      ACT_MEDIA_PLAY,
+      ACT_MEDIA_NEXT,
+      ACT_MEDIA_PREV,
+      ACT_CUSTOM
+    };
+
+    for (uint8_t i = 0; i < sizeof(actions); i++) {
+      uint8_t a = actions[i];
       html += "<option value='" + String(a) + "'";
       if (buttonActions[b] == a) html += " selected";
       html += ">";
@@ -269,12 +400,28 @@ String buildPage() {
       html += "</option>";
     }
 
-    html += "</select></div>";
+    html += "</select>";
+
+    html += "<textarea id='c" + String(b) + "' name='b" + String(b) + "_custom'>";
+    html += buttonCustom[b];
+    html += "</textarea>";
+
+    html += "<div class='hint'>";
+    html += "Examples:<br>";
+    html += "TEXT:Hello<br>";
+    html += "CTRL+L<br>";
+    html += "TEXT:https://google.com<br>";
+    html += "ENTER<br>";
+    html += "DELAY:500<br>";
+    html += "MEDIA:MUTE";
+    html += "</div>";
+
+    html += "</div>";
   }
 
   html += "<button type='submit'>Save and reboot</button>";
   html += "</form>";
-  html += "<p>Encoder is fixed: volume / mute.</p>";
+  html += "<p class='hint'>Encoder is fixed: volume / mute.</p>";
   html += "</body></html>";
 
   return html;
@@ -286,16 +433,22 @@ void handleRoot() {
 
 void handleSave() {
   for (int i = 0; i < 4; i++) {
-    String name = "b" + String(i);
-    if (server.hasArg(name)) {
-      buttonActions[i] = server.arg(name).toInt();
+    String actionName = "b" + String(i) + "_action";
+    String customName = "b" + String(i) + "_custom";
+
+    if (server.hasArg(actionName)) {
+      buttonActions[i] = server.arg(actionName).toInt();
+    }
+
+    if (server.hasArg(customName)) {
+      buttonCustom[i] = server.arg(customName);
     }
   }
 
   saveConfig();
 
   server.send(200, "text/html",
-              "<h2>Saved. Rebooting...</h2><p>You can close this page.</p>");
+       "<h2>Saved. Rebooting...</h2><p>You can close this page.</p>");
 
   delay(1000);
   ESP.restart();

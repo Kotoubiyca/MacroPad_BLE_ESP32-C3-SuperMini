@@ -1,7 +1,7 @@
 #pragma once
 
-// 0 = serial print logs on, 1 = serial print logs off
-#define DEBUG_ENABLED 1
+// 0 = serial print debug logs on, 1 = serial print debug logs off
+#define DEBUG_ENABLED 0
 
 #if DEBUG_ENABLED
   #define DBG(x) Serial.print(x)

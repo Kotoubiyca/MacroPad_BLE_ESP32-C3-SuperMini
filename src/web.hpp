@@ -6,6 +6,7 @@
 #include "state.hpp"
 #include "actions.hpp"
 #include "config.hpp"
+#include "debug.hpp"
 
 DNSServer dnsServer;
 const byte DNS_PORT = 53;
@@ -16,6 +17,20 @@ String htmlEscape(String value) {
   value.replace(">", "&gt;");
   value.replace("\"", "&quot;");
   return value;
+}
+
+String sleepOption(unsigned long value, const String& label) {
+  String html = "<option value='" + String(value) + "'";
+
+  if (sleepTimeoutMs == value) {
+    html += " selected";
+  }
+
+  html += ">";
+  html += label;
+  html += "</option>";
+
+  return html;
 }
 
 String buildPage() {
@@ -44,6 +59,22 @@ String buildPage() {
   html += "</head><body>";
   html += "<h2>ESP32-C3 MacroPad Config</h2>";
   html += "<form method='POST' action='/save'>";
+
+  html += "<div class='card'>";
+  html += "<h3>Sleep mode</h3>";
+  html += "<label for='sleepTimeout'>Sleep timeout</label>";
+  html += "<select id='sleepTimeout' name='sleepTimeout'>";
+  html += sleepOption(0, "Disabled");
+  html += sleepOption(120000, "2 minutes");
+  html += sleepOption(300000, "5 minutes");
+  html += sleepOption(600000, "10 minutes");
+  html += sleepOption(900000, "15 minutes");
+  html += sleepOption(1800000, "30 minutes");
+  html += "</select>";
+  html += "<div class='hint'>";
+  html += "Recommended: 2 minutes minimum. Use 5 minutes while debugging over USB.";
+  html += "</div>";
+  html += "</div>";
 
   for (int b = 0; b < BUTTON_COUNT; b++) {
     html += "<div class='card'>";
@@ -130,6 +161,10 @@ void handleSave() {
     }
   }
 
+  if (server.hasArg("sleepTimeout")) {
+    sleepTimeoutMs = server.arg("sleepTimeout").toInt();
+  }
+
   saveConfig();
 
   server.send(200, "text/html", "<h2>Saved. Rebooting...</h2>");
@@ -163,10 +198,10 @@ void startConfigMode() {
 
   server.begin();
 
-  DBGF("Config mode started");
-  DBGF("AP: ESP32-MacroPad-Config");
-  DBGF("Password: 12345678");
-  DBGF("Open: http://192.168.4.1");
+  DBGLN("Config mode started");
+  DBGLN("AP: ESP32-MacroPad-Config");
+  DBGLN("Password: 12345678");
+  DBGLN("Open: http://192.168.4.1");
 }
 
 void handleConfigWeb() {

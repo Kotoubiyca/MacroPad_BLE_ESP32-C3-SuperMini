@@ -53,3 +53,5 @@ const unsigned long debounceMs = 80;
 int lastClk = HIGH;
 bool lastEncSw = HIGH;
 unsigned long lastEncSwMs = 0;
+
+inline unsigned long sleepTimeoutMs = 120000;

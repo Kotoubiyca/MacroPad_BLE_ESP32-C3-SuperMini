@@ -7,8 +7,6 @@
 static unsigned long lastActivityMs = 0;
 static bool softSleepMode = false;
 
-const unsigned long SLEEP_TIMEOUT_MS = 120000; // 2 min
-
 const uint32_t ACTIVE_CPU_MHZ = 160;
 const uint32_t IDLE_CPU_MHZ = 80;
 
@@ -43,9 +41,9 @@ inline void enterSoftSleep() {
 inline void handleAutoSleep() {
   unsigned long idle = millis() - lastActivityMs;
 
-  if (!softSleepMode && idle >= SLEEP_TIMEOUT_MS) {
+  if (!softSleepMode && millis() - lastActivityMs >= sleepTimeoutMs) {
     DBGF("[SLEEP] -> entering soft sleep");
-    
+
     enterSoftSleep();
   }
 

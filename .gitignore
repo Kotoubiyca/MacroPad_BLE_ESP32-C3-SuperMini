@@ -1,4 +1,5 @@
 .pio
 .vscode
+.idea/
 
 src/local_pins.hpp
